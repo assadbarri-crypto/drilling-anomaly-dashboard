@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+*.so
+
+# Environment
+.env
+venv/
+.venv/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data — intermediate files (regeneratable from PDFs)
+data/extracted/
+data/ocr_cache/
+
+# Keep processed data (dashboard needs it)
+!data/processed/
+
+# Output
+output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
