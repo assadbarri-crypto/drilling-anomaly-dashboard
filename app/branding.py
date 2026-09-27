@@ -6,8 +6,14 @@ There is NO viewer-facing toggle. Admin flips the config and redeploys.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 import streamlit as st
+
+# Ensure project root is importable (needed on Streamlit Cloud)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.config_loader import load_config
 

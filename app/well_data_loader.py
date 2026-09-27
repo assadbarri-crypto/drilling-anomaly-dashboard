@@ -9,11 +9,24 @@ Handles:
 from __future__ import annotations
 
 import re
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+
+# Ensure project root is importable (needed on Streamlit Cloud)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from src.config_loader import load_config, Config, Well
+
+# Ensure project root is importable (needed on Streamlit Cloud)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.config_loader import load_config, Config, Well
 
