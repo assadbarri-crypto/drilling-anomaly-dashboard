@@ -4,7 +4,6 @@ Drilling Report Anomaly Dashboard — main Streamlit app.
 import streamlit as st
 import pandas as pd
 
-from data_loader import load_reports, get_anomaly_counts
 from components import (
     anomaly_bar_chart,
     depth_vs_time_chart,
@@ -12,6 +11,11 @@ from components import (
     mud_weight_chart,
     field_row,
 )
+from data_loader import get_anomaly_counts
+from well_data_loader import load_well_data
+from branding import render_header, render_sidebar_brand
+from trajectory import render_trajectory
+from src.config_loader import load_config
 
 st.set_page_config(
     page_title="Drilling Report Anomaly Dashboard",
@@ -20,16 +24,38 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------------------
-# Load data
+# Config + well selector
 # ----------------------------------------------------------------
-df = load_reports()
+CONFIG = load_config()
+
+st.sidebar.title("🛢️ Drilling Dashboard")
+st.sidebar.divider()
+st.sidebar.subheader("Well")
+
+well_options = {w.id: w.display_name for w in CONFIG.wells}
+default_well = CONFIG.default_well_id if CONFIG.default_well_id in well_options else list(well_options)[0]
+
+selected_well_id = st.sidebar.selectbox(
+    "Select well",
+    options=list(well_options.keys()),
+    format_func=lambda k: well_options[k],
+    index=list(well_options.keys()).index(default_well),
+)
+
+st.sidebar.divider()
+
+# Load selected well
+bundle = load_well_data(selected_well_id)
+well = bundle["well"]
+df = bundle["reports"]
+survey = bundle["survey"]
 
 # ----------------------------------------------------------------
 # Sidebar — filters
 # ----------------------------------------------------------------
 with st.sidebar:
-    st.title("🛢️ Drilling Dashboard")
-    st.caption("Thar Jath #11 — DDR Analysis")
+    #st.title("🛢️ Drilling Dashboard")
+    #st.caption("Thar Jath #11 — DDR Analysis")
     st.divider()
 
     st.subheader("Filters")
@@ -96,10 +122,9 @@ if selected_labels:
     filtered = filtered[filtered["anomalies"].apply(has_selected)]
 
 # ----------------------------------------------------------------
-# Header
+# Header (branding-controlled)
 # ----------------------------------------------------------------
-st.title("🛢️ Drilling Report Anomaly Dashboard")
-st.caption("Automated daily drilling report (DDR) analysis — Thar Jath #11")
+render_header(well.display_name)
 
 # ----------------------------------------------------------------
 # KPIs
@@ -129,6 +154,13 @@ with k4:
         st.metric("Current depth (m)", "—")
 
 st.divider()
+
+# ----------------------------------------------------------------
+# Trajectory (deviated wells only)
+# ----------------------------------------------------------------
+if well.is_deviated and survey is not None:
+    render_trajectory(survey)
+    st.divider()
 
 # ----------------------------------------------------------------
 # Charts — Row 1
@@ -198,10 +230,22 @@ st.divider()
 # ----------------------------------------------------------------
 st.subheader("Report Detail")
 
-options = filtered["source_file"].tolist()
+# Column name differs between wells: old TJ-11 CSV used 'source_file',
+# new TJ-5/TJ-8 CSVs use 'filename'. Pick whichever exists.
+file_col = None
+for candidate in ("filename", "source_file"):
+    if candidate in filtered.columns:
+        file_col = candidate
+        break
+
+if file_col is None:
+    st.warning("No file identifier column found — cannot show report detail.")
+    st.stop()
+
+options = filtered[file_col].tolist()
 if options:
     selected_file = st.selectbox("Select a report", options=options)
-    row = filtered[filtered["source_file"] == selected_file].iloc[0]
+    row = filtered[filtered[file_col] == selected_file].iloc[0]
 
     tab1, tab2, tab3, tab4 = st.tabs([
         "📋 General", "🛠️ Drilling", "💧 Mud & Hydraulics", "⚠️ Anomalies"
@@ -303,5 +347,4 @@ if options:
 # ----------------------------------------------------------------
 # Footer
 # ----------------------------------------------------------------
-st.divider()
-st.caption("Built with Streamlit • Data source: Thar Jath #11 DDRs (Sep–Oct 2004)")
+st.caption(f"Built with Streamlit • Data source: {well.display_name}")

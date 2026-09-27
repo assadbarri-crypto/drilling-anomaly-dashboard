@@ -65,3 +65,28 @@ def is_garbled(text: str, min_tokens: int = 20,
     unique_ratio = len(set(tokens)) / len(tokens)
     digit_ratio  = sum(t.isdigit() for t in tokens) / len(tokens)
     return unique_ratio < max_unique_ratio or digit_ratio > max_digit_ratio
+
+# ----------------------------------------------------------------------
+# MULTI-WELL SUPPORT (added for TJ-5 / TJ-8, Session 3)
+# ----------------------------------------------------------------------
+def list_pdfs_in(folder: Path) -> list[Path]:
+    """Return all PDFs in the given folder, sorted by filename."""
+    folder = Path(folder)
+    if not folder.exists():
+        raise FileNotFoundError(f"PDF folder not found: {folder}")
+    pdfs = sorted(folder.glob("*.pdf"), key=lambda p: p.name)
+    return pdfs
+
+
+def extracted_dir_for(well_id: str) -> Path:
+    """Return (and create) the extracted-JSON folder for a well."""
+    d = DATA_EXTRACTED / well_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def ocr_cache_dir_for(well_id: str) -> Path:
+    """Return (and create) the OCR cache folder for a well."""
+    d = DATA_OCR_CACHE / well_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d

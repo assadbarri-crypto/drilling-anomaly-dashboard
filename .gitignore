@@ -36,3 +36,11 @@ desktop.ini
 
 # Logs
 *.log
+
+#Backup
+*.bak 
+# Smoke test folder 
+_smoke/ 
+ 
+# Smoke test folder 
+_smoke/ 

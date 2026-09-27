@@ -101,3 +101,65 @@ def pick_columns(row: List[Dict], columns: List[tuple]) -> List[Optional[str]]:
     Returns one value per column (or None if nothing found).
     """
     return [pick_by_x_range(row, xmin, xmax) for (xmin, xmax) in columns]
+
+# ======================================================================
+# LAYOUT-AWARE ANCHORS (added for multi-well support, Session 3)
+# ======================================================================
+def find_header_row(rows: List[List[Dict]], *keywords: str) -> Optional[List[Dict]]:
+    """
+    Return the row containing ALL given keywords (case-insensitive).
+    Used to find section headers like ('BIT', 'RUN', 'SIZE', 'SERIAL').
+    """
+    check = [k.upper() for k in keywords]
+    for row in rows:
+        texts = [w["text"].upper() for w in row]
+        row_upper = " ".join(texts)
+        if all(k in row_upper for k in check):
+            return row
+    return None
+
+
+def anchor_x(header_row: List[Dict], token: str,
+             exact: bool = False) -> Optional[float]:
+    """
+    Return the x0 of the header word matching `token`.
+    If exact=False, matches token as a substring (case-insensitive).
+    """
+    token_u = token.upper()
+    for w in header_row:
+        t = w["text"].upper()
+        if (t == token_u) if exact else (token_u in t):
+            return w["x0"]
+    return None
+
+
+def value_at_anchor(data_row: List[Dict], anchor: Optional[float],
+                    tol_left: float = 8.0, tol_right: float = 25.0
+                    ) -> Optional[str]:
+    """
+    Return the first word in data_row whose x0 is within
+    [anchor - tol_left, anchor + tol_right].
+
+    Data values usually sit slightly RIGHT of the header text,
+    hence the asymmetric tolerance.
+    """
+    if anchor is None:
+        return None
+    for w in data_row:
+        if anchor - tol_left <= w["x0"] <= anchor + tol_right:
+            return w["text"]
+    return None
+
+
+def value_range_at_anchor(data_row: List[Dict], anchor: Optional[float],
+                          tol_left: float = 8.0, tol_right: float = 40.0,
+                          sep: str = " ") -> Optional[str]:
+    """
+    Like value_at_anchor, but joins all words in the x-window.
+    Useful for multi-word values (e.g., '6 2/3', 'G-105').
+    """
+    if anchor is None:
+        return None
+    parts = [w["text"] for w in data_row
+             if anchor - tol_left <= w["x0"] <= anchor + tol_right]
+    return sep.join(parts) if parts else None

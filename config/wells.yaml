@@ -1,0 +1,52 @@
+# ============================================================
+# wells.yaml — Well registry for the drilling anomaly dashboard
+# ============================================================
+# This file controls:
+#   1. Which wells appear in the dropdown
+#   2. Where each well's data lives
+#   3. Whether branding (logo / well name) is shown
+#
+# IMPORTANT: Branding defaults to OFF. It is NOT viewer-toggleable.
+# To enable for an authorized/internal version, change the values
+# below, commit, and redeploy.
+# ============================================================
+
+wells:
+  - id: TharJath5
+    display_name: "Thar Jath-5"
+    type: vertical              # vertical | deviated
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath5/drilling_reports.csv"
+    survey_path: null           # vertical wells skip trajectory
+
+  - id: TharJath8
+    display_name: "Thar Jath-8"
+    type: deviated
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath8/drilling_reports.csv"
+    survey_path: "data/wells/TharJath8/survey.csv"
+
+  - id: TharJath11
+    display_name: "Thar Jath-11"
+    type: vertical
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/processed/all_reports.csv"
+    survey_path: null
+
+# ============================================================
+# Branding — OFF by default, controlled at deploy level only
+# ============================================================
+branding:
+  show_logo: false              # if false, no logo is rendered
+  show_well_name: false         # if false, well names are generic/hidden
+  client_name: "PETRONAS CARIGALI"
+  logo_path: "assets/petronas_carigali_logo.png"
+
+# ============================================================
+# UI defaults
+# ============================================================
+ui:
+  default_well_id: "TharJath5"  # well shown on first load
