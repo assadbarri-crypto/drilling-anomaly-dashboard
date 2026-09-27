@@ -37,8 +37,16 @@ class Well:
 class Branding:
     show_logo: bool
     show_well_name: bool
+    anonymize_wells: bool
+    anonymized_names: dict
     client_name: str
     logo_path: Path
+
+    def display_name_for(self, well_id: str, real_name: str) -> str:
+        """Return the display name for a well, respecting anonymization."""
+        if not self.anonymize_wells:
+            return real_name
+        return self.anonymized_names.get(well_id, real_name)
 
 
 @dataclass(frozen=True)
@@ -88,6 +96,8 @@ def load_config(config_path: Path = CONFIG_PATH) -> Config:
     branding = Branding(
         show_logo=bool(b.get("show_logo", False)),
         show_well_name=bool(b.get("show_well_name", False)),
+        anonymize_wells=bool(b.get("anonymize_wells", False)),
+        anonymized_names=dict(b.get("anonymized_names", {}) or {}),
         client_name=b.get("client_name", ""),
         logo_path=_resolve(b.get("logo_path", "assets/petronas_carigali_logo.png")),
     )

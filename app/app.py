@@ -40,7 +40,10 @@ st.sidebar.title("🛢️ Drilling Dashboard")
 st.sidebar.divider()
 st.sidebar.subheader("Well")
 
-well_options = {w.id: w.display_name for w in CONFIG.wells}
+def _display(w):
+    return CONFIG.branding.display_name_for(w.id, w.display_name)
+
+well_options = {w.id: _display(w) for w in CONFIG.wells}
 default_well = CONFIG.default_well_id if CONFIG.default_well_id in well_options else list(well_options)[0]
 
 selected_well_id = st.sidebar.selectbox(
@@ -132,7 +135,7 @@ if selected_labels:
 # ----------------------------------------------------------------
 # Header (branding-controlled)
 # ----------------------------------------------------------------
-render_header(well.display_name)
+render_header(CONFIG.branding.display_name_for(well.id, well.display_name))
 
 # ----------------------------------------------------------------
 # KPIs
@@ -355,4 +358,4 @@ if options:
 # ----------------------------------------------------------------
 # Footer
 # ----------------------------------------------------------------
-st.caption(f"Built with Streamlit • Data source: {well.display_name}")
+st.caption(f"Built with Streamlit • Data source: {CONFIG.branding.display_name_for(well.id, well.display_name)}")
