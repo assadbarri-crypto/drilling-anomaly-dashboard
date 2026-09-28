@@ -1,9 +1,10 @@
 """
 Field extractor for Petronas Carigali IADC-style daily drilling reports.
 
-Uses COORDINATE-BASED extraction for grid sections (mud, bit, time,
-pumps, surveys, general info) and REGEX for narrative sections
-(summary, anomalies, fuel).
+Uses coordinate-based extraction for grid sections (mud, bit, time, pumps,
+surveys, general info) and regex for narrative sections (summary, anomalies,
+fuel). All grid extractors are layout-aware: they derive column anchors from
+the header row of each table, so they work across TJ-5, TJ-8 and TJ-11.
 """
 from __future__ import annotations
 
@@ -107,13 +108,12 @@ def extract_header_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
 
 
 # ======================================================================
-# GENERAL INFO (safety, POB, casing) — layout-aware
+# GENERAL INFO (safety, POB, casing)
 # ======================================================================
 def extract_general_info_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
     """
     Layout-aware general info extraction.
     Finds the label, then reads the first numeric/date value to its right.
-    Works for TJ-5, TJ-8, TJ-11 layouts alike.
     """
     out: Dict[str, Any] = {}
 
@@ -145,77 +145,64 @@ def extract_general_info_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
             continue
         joined = " ".join(w["text"] for w in row).upper()
 
-        # Days w/o LTA
         if "DAYS" in joined and "LOST" in joined and "ACCIDENT" in joined:
             v = _value_after_label(row, ["Accident", "LTA"])
             if v is not None:
                 out["days_without_lta"] = _num(v)
 
-        # Last BOP Test
         if "LAST" in joined and "BOP" in joined and "last_bop_test" not in out:
             v = _value_after_label(row, ["Test"], numeric_only=False)
             if v:
                 out["last_bop_test"] = v
 
-        # Last Kick Drill
         if "LAST" in joined and "KICK" in joined:
             v = _value_after_label(row, ["Drill"], numeric_only=False)
             if v:
                 out["last_kick_drill"] = v
 
-        # Expatriates
         if "EXPATRIATES" in joined:
             v = _value_after_label(row, ["EXPATRIATES"])
             if v is not None:
                 out["pob_expat"] = _num(v)
 
-        # STAFF (not NON-STAFF, not PERSONNEL, not PROPOSED)
         if ("STAFF" in joined and "NON-STAFF" not in joined
                 and "PERSONNEL" not in joined and "PROPOSED" not in joined):
             v = _value_after_label(row, ["STAFF"])
             if v is not None:
                 out["pob_staff"] = _num(v)
 
-        # NON-STAFF
         if "NON-STAFF" in joined or "NON STAFF" in joined:
             v = _value_after_label(row, ["NON-STAFF", "NON STAFF"])
             if v is not None:
                 out["pob_non_staff"] = _num(v)
 
-        # Total personnel
         if "TOTAL" in joined and "PERSONNEL" in joined:
             v = _value_after_label(row, ["PERSONNEL"])
             if v is not None:
                 out["pob_total"] = _num(v)
 
-    # Deepest casing: size + depth are on the STAFF row (casing header row)
+    # Deepest casing: size + depth are on the STAFF row
     for row in rows[:25]:
         joined = " ".join(w["text"] for w in row).upper()
         if "STAFF" in joined and "NON-STAFF" not in joined and "PROPOSED" not in joined:
-            # Walk the row to find the casing size (may be split into 2 words)
             size_str = None
             size_idx = None
             for i, w in enumerate(row):
-                # Case 1: single word '9 5/8"'
                 if "/" in w["text"] and '"' in w["text"]:
-                    # Check if previous word was a whole number (like '9')
-                    if i > 0 and row[i-1]["text"].isdigit():
-                        size_str = row[i-1]["text"] + " " + w["text"]
+                    if i > 0 and row[i - 1]["text"].isdigit():
+                        size_str = row[i - 1]["text"] + " " + w["text"]
                         size_idx = i
                     else:
                         size_str = w["text"]
                         size_idx = i
                     break
-                # Case 2: decimal like '13.375"' or '9.625"'
-                if '.' in w["text"] and '"' in w["text"]:
+                if "." in w["text"] and '"' in w["text"]:
                     size_str = w["text"]
                     size_idx = i
                     break
 
             if size_str:
                 out["deepest_casing_size_in"] = size_str
-
-                # Read the depth — first number > 100 to the right of size
                 if size_idx is not None:
                     for w2 in row[size_idx + 1:]:
                         n = _num(w2["text"])
@@ -228,68 +215,159 @@ def extract_general_info_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
 
 
 # ======================================================================
-# MUD
+# MUD PROPERTIES (layout-aware)
 # ======================================================================
 def extract_mud_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
+    """
+    Layout-aware mud properties extraction.
+    Reads the MUD PROPERTIES header row to derive column anchors,
+    then reads values from the row below.
+    """
     out: Dict[str, Any] = {}
 
-    # Find the mud-values row (contains "ppm")
-    mud_row = None
+    # Locate header row (contains all these distinctive tokens)
+    header = None
     for row in rows:
-        if any(w["text"] == "ppm" for w in row):
-            mud_row = row
+        joined = " ".join(w["text"] for w in row).upper()
+        if ("WT" in joined and "VIS" in joined
+                and "GELS" in joined and "CHLORIDES" in joined):
+            header = row
             break
-    if not mud_row:
+
+    if header is None:
         return out
 
-    anchors = {
-        "mud_weight_ppg":     79,
-        "funnel_viscosity_s": 113,
-        "plastic_viscosity":  143,
-        "yield_point":        171,
-        "gels":               204,
-        "api_wl":             238,
-        "chlorides_ppm":      335,
-        "sand_pct":           391,
-        "solids_pct":         422,
-    }
-    for field, x in anchors.items():
-        v = _word_near_x(mud_row, x, tol=12)
-        if v:
-            out[field] = _num(v)
+    def _find_x(*tokens) -> Optional[float]:
+        for t in tokens:
+            for w in header:
+                if t.upper() in w["text"].upper():
+                    return w["x0"]
+        return None
 
-    # MBT / Oil-Water / pH / mud type row (2 rows below mud row)
+    a_mw   = _find_x("WT", "WT.")
+    a_vis  = _find_x("VIS")
+    a_pv   = _find_x("PV")
+    a_yp   = _find_x("YP")
+    a_gels = _find_x("GELS")
+    a_api  = _find_x("API")
+    a_chl  = _find_x("CHLORIDES")
+    a_sand = _find_x("SAND")
+    a_sol  = _find_x("SOLIDS")
+
+    # Locate values row (contains 'ppm')
+    header_idx = rows.index(header)
+    values_row = None
+    for r in rows[header_idx + 1: header_idx + 4]:
+        if any(w["text"] == "ppm" for w in r):
+            values_row = r
+            break
+
+    if values_row is None:
+        return out
+
+    def _val(anchor, tol_right=25):
+        if anchor is None:
+            return None
+        for w in values_row:
+            if anchor - 8 <= w["x0"] <= anchor + tol_right:
+                n = _num(w["text"])
+                if n is not None:
+                    return n
+        return None
+
+    v = _val(a_mw)
+    if v is not None:
+        out["mud_weight_ppg"] = v
+
+    v = _val(a_vis)
+    if v is not None:
+        out["funnel_viscosity_s"] = v
+
+    v = _val(a_pv)
+    if v is not None:
+        out["plastic_viscosity"] = v
+
+    v = _val(a_yp)
+    if v is not None:
+        out["yield_point"] = v
+
+    v = _val(a_gels)
+    if v is not None:
+        out["gels"] = v
+
+    v = _val(a_api)
+    if v is not None:
+        out["api_wl"] = v
+
+    v = _val(a_chl, tol_right=50)
+    if v is not None:
+        out["chlorides_ppm"] = v
+
+    v = _val(a_sand)
+    if v is not None:
+        out["sand_pct"] = v
+
+    v = _val(a_sol)
+    if v is not None:
+        out["solids_pct"] = v
+
+    # Row below values: MBT / Oil-Water / pH / mud type
     try:
-        idx = rows.index(mud_row)
-        row_below = rows[idx + 2]
+        row_below = rows[rows.index(values_row) + 2]
     except (ValueError, IndexError):
         return out
 
-    mbt = _word_near_x(row_below, 81, tol=12)
-    if mbt:
-        out["mbt"] = _num(mbt)
-    ph = _word_near_x(row_below, 140, tol=12)
-    if ph:
-        out["ph"] = _num(ph)
-    ow = _word_near_x(row_below, 164, tol=12)
-    if ow:
-        out["oil_water_ratio"] = _num(ow)
+    a_mbt = a_ow = a_ph = None
+    for w in row_below:
+        t = w["text"].upper()
+        if "MBT" in t and a_mbt is None:
+            a_mbt = w["x1"]
+        if "OIL" in t and "WATER" in t and a_ow is None:
+            a_ow = w["x1"]
+        if t == "PH" and a_ph is None:
+            a_ph = w["x1"]
 
-    mud_type = _join_x_range(row_below, 170, 280)
-    if mud_type:
-        out["mud_type"] = mud_type
+    def _val_after(start_x, tol_right=25):
+        if start_x is None:
+            return None
+        for w in row_below:
+            if start_x < w["x0"] <= start_x + tol_right:
+                n = _num(w["text"])
+                if n is not None:
+                    return n
+        return None
 
-    # Mud cost row (next row after row_below)
-    try:
-        cost_row = rows[rows.index(row_below) + 1]
-        daily = _join_x_range(cost_row, 440, 480, sep="")
-        cumm  = _join_x_range(cost_row, 520, 570, sep="")
-        if daily:
-            out["mud_cost_daily_usd"] = _num(daily)
-        if cumm:
-            out["mud_cost_cumulative_usd"] = _num(cumm)
-    except (ValueError, IndexError):
-        pass
+    v = _val_after(a_mbt)
+    if v is not None:
+        out["mbt"] = v
+    v = _val_after(a_ow)
+    if v is not None:
+        out["oil_water_ratio"] = v
+    v = _val_after(a_ph)
+    if v is not None:
+        out["ph"] = v
+
+    for i, w in enumerate(row_below):
+        if "USED" in w["text"].upper():
+            parts = [row_below[j]["text"] for j in range(i + 1, len(row_below))]
+            if parts:
+                out["mud_type"] = " ".join(parts)[:80]
+            break
+
+    # Mud cost row
+    for r in rows[rows.index(row_below) + 1:
+                    rows.index(row_below) + 4]:
+        joined = " ".join(w["text"] for w in r).upper()
+        if "DAILY" in joined and "CUMULATIVE" in joined:
+            continue
+        nums = [_num(w["text"]) for w in r if _num(w["text"]) is not None]
+        nums = [n for n in nums if n > 0]
+        if nums:
+            if "mud_cost_daily_usd" not in out:
+                out["mud_cost_daily_usd"] = nums[0]
+            if len(nums) > 1 and "mud_cost_cumulative_usd" not in out:
+                out["mud_cost_cumulative_usd"] = nums[-1]
+            break
 
     return out
 
@@ -308,7 +386,6 @@ def extract_surveys_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
     if not survey_row:
         return {"surveys": []}
 
-    # Merge adjacent words with tiny x-gap (e.g. "3" + "73" -> "373")
     merged: List[Dict] = []
     for w in survey_row:
         if merged and (w["x0"] - merged[-1]["x1"]) < 5:
@@ -336,7 +413,7 @@ def extract_surveys_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
 
 
 # ======================================================================
-# BIT RECORD (layout-aware)
+# BIT RECORD
 # ======================================================================
 def extract_bit_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
@@ -366,13 +443,11 @@ def extract_bit_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
         if not any(w["text"][0].isdigit() for w in r if w["text"]):
             continue
 
-        # Reject drilling-assembly rows
         REJECT = ("D.P.", "DP.", "GRADE", "T.J.", "BHA",
                   "STRING WEIGHT", "DRILL STRING")
         if any(kw in joined for kw in REJECT):
             continue
 
-        # Anchor-match test
         anchors = [a_size, a_serial, a_make, a_jets,
                    a_depth, a_footage, a_wt, a_rpm]
         hits = sum(1 for a in anchors
@@ -381,7 +456,6 @@ def extract_bit_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
         if hits < 5:
             continue
 
-        # Bit-size sanity check
         if a_size is not None:
             size_words = [w for w in r
                           if a_size - 8 <= w["x0"] <= a_size + 40]
@@ -401,21 +475,21 @@ def extract_bit_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
 
     data = data_rows[-1]
 
-    out["bit_size_in"]      = _num(value_range_at_anchor(data, a_size, sep=""))
-    out["bit_serial"]       = value_at_anchor(data, a_serial)
-    out["bit_make_type"]    = value_range_at_anchor(data, a_make, tol_right=60)
-    out["bit_jets"]         = value_range_at_anchor(data, a_jets, tol_right=40)
-    out["bit_depth_out_m"]  = _num(value_at_anchor(data, a_depth))
-    out["bit_footage_m"]    = _num(value_at_anchor(data, a_footage))
-    out["bit_weight_klbs"]  = value_at_anchor(data, a_wt)
-    out["bit_rpm"]          = _num(value_at_anchor(data, a_rpm))
-    out["bit_dull_code"]    = value_range_at_anchor(data, a_dull, tol_right=30, sep="")
+    out["bit_size_in"]     = _num(value_range_at_anchor(data, a_size, sep=""))
+    out["bit_serial"]      = value_at_anchor(data, a_serial)
+    out["bit_make_type"]   = value_range_at_anchor(data, a_make, tol_right=60)
+    out["bit_jets"]        = value_range_at_anchor(data, a_jets, tol_right=40)
+    out["bit_depth_out_m"] = _num(value_at_anchor(data, a_depth))
+    out["bit_footage_m"]   = _num(value_at_anchor(data, a_footage))
+    out["bit_weight_klbs"] = value_at_anchor(data, a_wt)
+    out["bit_rpm"]         = _num(value_at_anchor(data, a_rpm))
+    out["bit_dull_code"]   = value_range_at_anchor(data, a_dull, tol_right=30, sep="")
 
     return out
 
 
 # ======================================================================
-# PUMPS + HYDRAULICS (layout-aware)
+# PUMPS + HYDRAULICS
 # ======================================================================
 def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
@@ -445,10 +519,10 @@ def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
             continue
         if not ("T-" in joined or "BPMP" in joined or "F-" in joined or "F -" in joined):
             continue
-        # Must have at least 2 anchors matched
         anchors = [a_make, a_stroke, a_liner, a_rate, a_pressure]
         hits = sum(1 for a in anchors
-                   if a is not None and value_at_anchor(r, a, tol_right=30) is not None)
+                   if a is not None
+                   and value_at_anchor(r, a, tol_right=30) is not None)
         if hits >= 2:
             pump_rows.append(r)
 
@@ -467,7 +541,6 @@ def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
         if stroke:
             out[f"pump{n}_stroke_in"] = _num(stroke)
 
-        # Liner — numeric only
         if a_liner is not None:
             liner_parts = []
             for w in row:
@@ -477,7 +550,6 @@ def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
             if liner_parts:
                 out[f"pump{n}_liner_in"] = " ".join(liner_parts)
 
-        # SPM and GPM between RATE and VOLUME
         a_volume_use = a_volume if a_volume is not None else (a_pressure or 1e9)
         if a_rate is not None:
             candidates = [w for w in row
@@ -489,7 +561,6 @@ def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
             elif len(nums) == 1:
                 out[f"pump{n}_spm"] = _num(nums[0]["text"])
 
-        # Pressure between PRESSURE and KILL
         if a_pressure is not None:
             a_kill_use = a_kill if a_kill is not None else (a_pressure + 1e9)
             candidates = [w for w in row
@@ -498,7 +569,6 @@ def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
             if nums:
                 out[f"pump{n}_pressure_psi"] = _num(nums[0]["text"])
 
-        # Kill rate PSI (last number in the KILL RATES window)
         if a_kill is not None:
             kill_candidates = [w for w in row
                                if a_kill <= w["x0"] <= a_kill + 150]
@@ -507,7 +577,7 @@ def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
             if kill_nums:
                 out[f"pump{n}_kill_rate_psi"] = _num(kill_nums[-1]["text"])
 
-    # Velocity row
+    # Annular velocity row
     for row in rows:
         text = " ".join(w["text"] for w in row).upper()
         if "FT/MIN" in text and "FPS" in text:
@@ -527,7 +597,7 @@ def extract_pumps_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
 
 
 # ======================================================================
-# TIME BREAKDOWN (layout-aware)
+# TIME BREAKDOWN
 # ======================================================================
 def extract_time_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
@@ -555,17 +625,11 @@ def extract_time_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
             continue
         joined = " ".join(w["text"] for w in r).upper()
 
-        # CUMM header row (contains both CUMM and DRILLING): skip it,
-        # the actual CUMM data row is the one right after it.
         if "CUMM" in joined and "DRILLING" in joined:
             continue
         if "CUMM" in joined:
-            # This is a data row for the cumulative section
-            continue  # will pick it up below
+            continue
 
-        # Daily-row detection:
-        #   1) TOTAL anchor ≈ 24.0, OR
-        #   2) at least 2 time anchors populated
         is_daily = False
 
         if a_total is not None:
@@ -587,7 +651,6 @@ def extract_time_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
         if is_daily:
             daily_row = r
 
-    # CUMM data row: the row right after the CUMM header
     if cumm_row is None:
         for i, r in enumerate(rows[header_idx + 1: header_idx + 10],
                               start=header_idx + 1):
