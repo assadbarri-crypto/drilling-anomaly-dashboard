@@ -12,18 +12,15 @@ if str(_PROJECT_ROOT) not in sys.path:
 import streamlit as st
 import pandas as pd
 
-from components import (
-    anomaly_bar_chart,
-    depth_vs_time_chart,
-    rop_over_time_chart,
-    mud_weight_chart,
-    field_row,
-)
+from components import field_row
+from chart_registry import CHART_REGISTRY
+
 from data_loader import get_anomaly_counts
 from well_data_loader import load_well_data
 from branding import render_header, render_sidebar_brand
 from trajectory import render_trajectory
 from src.config_loader import load_config
+from background import render_background
 
 st.set_page_config(
     page_title="Drilling Report Anomaly Dashboard",
@@ -35,6 +32,7 @@ st.set_page_config(
 # Config + well selector
 # ----------------------------------------------------------------
 CONFIG = load_config()
+render_background()
 
 st.sidebar.title("🛢️ Drilling Dashboard")
 st.sidebar.divider()
@@ -174,25 +172,36 @@ if well.is_deviated and survey is not None:
     st.divider()
 
 # ----------------------------------------------------------------
-# Charts — Row 1
+# Charts — user-selectable
 # ----------------------------------------------------------------
-c1, c2 = st.columns(2)
+st.subheader("Charts")
 
-with c1:
-    anomaly_counts = get_anomaly_counts(filtered)
-    anomaly_bar_chart(anomaly_counts)
+default_charts = [
+    "Anomaly Distribution",
+    "Depth vs Time",
+    "Mud Weight over Time",
+]
 
-with c2:
-    depth_vs_time_chart(filtered)
+selected_charts = st.multiselect(
+    "Select charts to display",
+    options=list(CHART_REGISTRY.keys()),
+    default=default_charts,
+    help="Pick any number of charts — layout adjusts automatically.",
+)
 
-# ----------------------------------------------------------------
-# Charts — Row 2
-# ----------------------------------------------------------------
-c3, c4 = st.columns(2)
-with c3:
-    rop_over_time_chart(filtered)
-with c4:
-    mud_weight_chart(filtered)
+if not selected_charts:
+    st.info("No charts selected. Choose at least one from the dropdown above.")
+else:
+    # 2-column grid layout
+    for i in range(0, len(selected_charts), 2):
+        cols = st.columns(2)
+        for j, col in enumerate(cols):
+            idx = i + j
+            if idx >= len(selected_charts):
+                break
+            label = selected_charts[idx]
+            with col:
+                CHART_REGISTRY[label](filtered)
 
 st.divider()
 
@@ -306,6 +315,8 @@ if options:
             field_row("Bit Weight (klbs)", row.get("bit_weight_klbs"))
             field_row("Bit RPM", row.get("bit_rpm"))
             field_row("Bit Dull Code", row.get("bit_dull_code"))
+            field_row("MW IN (ppg)", row.get("mud_weight_in_ppg"))
+            field_row("MW OUT (ppg)", row.get("mud_weight_out_ppg"))
 
     with tab3:
         col1, col2 = st.columns(2)

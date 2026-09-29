@@ -40,15 +40,16 @@ wells:
 # Branding — OFF by default, controlled at deploy level only
 # ============================================================
 branding:
-  show_logo: true              # if false, no logo is rendered
-  show_well_name: false         # if false, well names are generic/hidden
-  #anonymize_wells: true       # ← new flag
-  #Other Option fo well names:
+  show_logo: true
+  show_well_name: true
   anonymize_wells: true
   anonymized_names:
     TharJath5:  "Well A"
     TharJath8:  "Well B"
     TharJath11: "Well C"
+  show_background: true                 # ← new
+  background_path: "assets/rig_background.jpg"   # ← new
+  background_opacity: 0.40              # ← new (0.0–1.0)
   client_name: "PETRONAS CARIGALI"
   logo_path: "assets/petronas_carigali_logo.png"
 

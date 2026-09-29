@@ -211,8 +211,94 @@ def extract_general_info_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
                             break
             break
 
+    # ---- ROP fallback: TJ-8 layout ----
+    # Label row contains 'AVG PEN. RATE (m/hr)'.
+    # The row immediately below contains the actual value, e.g. '4.60 m/hr'.
+    # Only fires if ROP not already found by the header extractor.
+    if "avg_pen_rate_mhr" not in out:
+        for r_idx, row in enumerate(rows[:25]):
+            joined = " ".join(w["text"] for w in row).upper()
+            # Find the label row: contains both 'PEN' and 'RATE'
+            if "PEN" not in joined or "RATE" not in joined:
+                continue
+            # The data row is the one right after it
+            if r_idx + 1 >= len(rows):
+                continue
+            data_row = rows[r_idx + 1]
+            # In the data row, find 'm/hr' and read the number just before it
+            mhr_idx = None
+            for i, w in enumerate(data_row):
+                if "M/HR" in w["text"].upper().replace(" ", ""):
+                    mhr_idx = i
+                    break
+            if mhr_idx is None or mhr_idx == 0:
+                continue
+            prev = data_row[mhr_idx - 1]
+            n = _num(prev["text"])
+            if n is not None and 0 < n < 100:
+                out["avg_pen_rate_mhr"] = n
+                break
+
     return out
 
+# ======================================================================
+# GENERAL INFO MUD WEIGHTS (MW IN / MW OUT)
+# ======================================================================
+def extract_general_info_mud_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
+    """
+    Extract MW IN and MW OUT from the GENERAL INFORMATION section.
+
+    Layout: header row with labels, then data row right below.
+    MW values sit in the same X-range as their 'MUD WT IN' / 'MUD WT OUT' labels.
+
+    Note: gas readings and weights are also present in the header but their
+    numeric values are NOT in the PDF text layer (source limitation), so they
+    cannot be extracted.
+    """
+    out: Dict[str, Any] = {}
+
+    # Locate the header row
+    header = None
+    header_idx = None
+    for i, row in enumerate(rows):
+        joined = " ".join(w["text"] for w in row).upper()
+        if ("BACKGROUND" in joined and "BOTTOMS" in joined
+                and "MUD" in joined and "WEIGHT" in joined):
+            header = row
+            header_idx = i
+            break
+
+    if header is None or header_idx + 1 >= len(rows):
+        return out
+
+    data_row = rows[header_idx + 1]
+    if not data_row:
+        return out
+
+    # Find the two MUD label X positions
+    mud_positions = [w["x0"] for w in header if "MUD" in w["text"].upper()]
+    a_mw_in  = mud_positions[0] if len(mud_positions) > 0 else None
+    a_mw_out = mud_positions[1] if len(mud_positions) > 1 else None
+
+    def _value_after(anchor_x, width: float = 60.0):
+        if anchor_x is None:
+            return None
+        for w in data_row:
+            if anchor_x - 5 <= w["x0"] <= anchor_x + width:
+                n = _num(w["text"])
+                if n is not None:
+                    return n
+        return None
+
+    v = _value_after(a_mw_in, width=30)
+    if v is not None:
+        out["mud_weight_in_ppg"] = v
+
+    v = _value_after(a_mw_out, width=30)
+    if v is not None:
+        out["mud_weight_out_ppg"] = v
+
+    return out
 
 # ======================================================================
 # MUD PROPERTIES (layout-aware)
@@ -787,6 +873,7 @@ def parse_report(raw_text: str, words_pages: List[List[Dict]]) -> Dict[str, Any]
     parsed: Dict[str, Any] = {}
     parsed.update(extract_header_from_rows(page0_rows))
     parsed.update(extract_general_info_from_rows(page0_rows))
+    parsed.update(extract_general_info_mud_from_rows(page0_rows))
     parsed.update(extract_mud_from_rows(page0_rows))
     parsed.update(extract_surveys_from_rows(page0_rows))
     parsed.update(extract_bit_from_rows(page0_rows))

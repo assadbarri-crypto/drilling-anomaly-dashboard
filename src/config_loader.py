@@ -39,6 +39,9 @@ class Branding:
     show_well_name: bool
     anonymize_wells: bool
     anonymized_names: dict
+    show_background: bool
+    background_path: Path
+    background_opacity: float
     client_name: str
     logo_path: Path
 
@@ -98,6 +101,10 @@ def load_config(config_path: Path = CONFIG_PATH) -> Config:
         show_well_name=bool(b.get("show_well_name", False)),
         anonymize_wells=bool(b.get("anonymize_wells", False)),
         anonymized_names=dict(b.get("anonymized_names", {}) or {}),
+        show_background=bool(b.get("show_background", False)),
+        background_path=_resolve(b.get("background_path",
+                                       "assets/rig_background.jpg")),
+        background_opacity=float(b.get("background_opacity", 0.18)),
         client_name=b.get("client_name", ""),
         logo_path=_resolve(b.get("logo_path", "assets/petronas_carigali_logo.png")),
     )
