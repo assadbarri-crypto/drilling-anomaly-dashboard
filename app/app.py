@@ -274,8 +274,14 @@ if options:
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
-            field_row("Well", row.get("well_name"))
-            field_row("Rig", row.get("rig_name"))
+            field_row(
+                "Well",
+                CONFIG.branding.display_name_for(well.id, row.get("well_name")),
+            )
+            field_row(
+                "Rig",
+                CONFIG.branding.display_rig_name(row.get("rig_name")),
+            )
             field_row("Date", row.get("date_raw"))
             field_row("Report No", row.get("report_no"))
             field_row("Days w/o LTA", row.get("days_without_lta"))

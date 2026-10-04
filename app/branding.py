@@ -48,12 +48,11 @@ def render_header(well_display_name: str | None = None) -> None:
         parts = []
         if b.show_well_name and well_display_name:
             parts.append(well_display_name)
-        if b.client_name and b.show_logo:
+        if b.show_client_name and b.client_name:
             parts.append(b.client_name)
         if parts:
             st.caption(" — ".join(parts))
-        else:
-            st.caption("Automated daily drilling report (DDR) analysis")
+        # If nothing enabled, render no caption at all
 
 
 def render_sidebar_brand(well_display_name: str | None = None) -> None:

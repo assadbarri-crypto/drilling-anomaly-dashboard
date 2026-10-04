@@ -1,24 +1,15 @@
 # ============================================================
 # wells.yaml — Well registry for the drilling anomaly dashboard
 # ============================================================
-# This file controls:
-#   1. Which wells appear in the dropdown
-#   2. Where each well's data lives
-#   3. Whether branding (logo / well name) is shown
-#
-# IMPORTANT: Branding defaults to OFF. It is NOT viewer-toggleable.
-# To enable for an authorized/internal version, change the values
-# below, commit, and redeploy.
-# ============================================================
 
 wells:
   - id: TharJath5
     display_name: "Thar Jath-5"
-    type: vertical              # vertical | deviated
+    type: vertical
     field: "Sudan Block 5A"
     country: "Sudan"
     data_path: "data/wells/TharJath5/drilling_reports.csv"
-    survey_path: null           # vertical wells skip trajectory
+    survey_path: null
 
   - id: TharJath8
     display_name: "Thar Jath-8"
@@ -30,31 +21,33 @@ wells:
 
   - id: TharJath11
     display_name: "Thar Jath-11"
-    type: vertical
+    type: deviated                                          # ← was vertical
     field: "Sudan Block 5A"
     country: "Sudan"
     data_path: "data/processed/all_reports.csv"
-    survey_path: null
+    survey_path: "data/wells/TharJath11/survey.csv"         # ← new
 
 # ============================================================
-# Branding — OFF by default, controlled at deploy level only
+# Branding — controlled at deploy level only
 # ============================================================
 branding:
   show_logo: true
   show_well_name: true
+  show_client_name: false                 # ← NEW: hide "PETRONAS CARIGALI"
   anonymize_wells: true
   anonymized_names:
     TharJath5:  "Well A"
     TharJath8:  "Well B"
     TharJath11: "Well C"
-  show_background: true                 # ← new
-  background_path: "assets/rig_background.jpg"   # ← new
-  background_opacity: 0.40              # ← new (0.0–1.0)
+
+  show_rig_name: false                    # ← NEW: mask rig name
+  rig_name_masked: "XXXX"                 # ← NEW: what to show instead
+
+  show_background: true
+  background_path: "assets/rig_background.jpg"
+  background_opacity: 0.40
   client_name: "PETRONAS CARIGALI"
   logo_path: "assets/petronas_carigali_logo.png"
 
-# ============================================================
-# UI defaults
-# ============================================================
 ui:
-  default_well_id: "TharJath5"  # well shown on first load
+  default_well_id: "TharJath5"

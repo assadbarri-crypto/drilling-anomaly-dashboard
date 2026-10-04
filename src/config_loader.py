@@ -37,8 +37,11 @@ class Well:
 class Branding:
     show_logo: bool
     show_well_name: bool
+    show_client_name: bool
     anonymize_wells: bool
     anonymized_names: dict
+    show_rig_name: bool
+    rig_name_masked: str
     show_background: bool
     background_path: Path
     background_opacity: float
@@ -50,6 +53,12 @@ class Branding:
         if not self.anonymize_wells:
             return real_name
         return self.anonymized_names.get(well_id, real_name)
+
+    def display_rig_name(self, real_rig_name) -> str:
+        """Return the rig name to display, respecting masking."""
+        if self.show_rig_name:
+            return real_rig_name or self.rig_name_masked
+        return self.rig_name_masked
 
 
 @dataclass(frozen=True)
@@ -99,8 +108,11 @@ def load_config(config_path: Path = CONFIG_PATH) -> Config:
     branding = Branding(
         show_logo=bool(b.get("show_logo", False)),
         show_well_name=bool(b.get("show_well_name", False)),
+        show_client_name=bool(b.get("show_client_name", True)),
         anonymize_wells=bool(b.get("anonymize_wells", False)),
         anonymized_names=dict(b.get("anonymized_names", {}) or {}),
+        show_rig_name=bool(b.get("show_rig_name", True)),
+        rig_name_masked=b.get("rig_name_masked", "XXXX"),
         show_background=bool(b.get("show_background", False)),
         background_path=_resolve(b.get("background_path",
                                        "assets/rig_background.jpg")),
