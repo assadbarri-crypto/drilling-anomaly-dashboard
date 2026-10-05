@@ -262,11 +262,37 @@ if file_col is None:
     st.warning("No file identifier column found — cannot show report detail.")
     st.stop()
 
-options = filtered[file_col].tolist()
+# --- Anonymize filenames for display ---
+def _mask_filename(filename: str, well_id: str, real_well_name: str) -> str:
+    """Replace real well identifiers inside a filename with the anonymized name."""
+    if not filename:
+        return filename
+    if not CONFIG.branding.anonymize_wells:
+        return filename
+    masked_name = CONFIG.branding.display_name_for(well_id, real_well_name)
+    # Build a list of common variants of the well id to replace
+    variants = [
+        well_id,                                       # TharJath5
+        well_id.replace("TharJath", "TharJath_"),      # TharJath_5
+        well_id.replace("TharJath", "Thar Jath-"),     # Thar Jath-5
+        well_id.replace("TharJath", "Thar Jath "),     # Thar Jath 5
+    ]
+    out = filename
+    for v in variants:
+        out = out.replace(v, masked_name)
+    return out
+
+options = [
+    _mask_filename(f, well.id, well.display_name)
+    for f in filtered[file_col].tolist()
+]
+
+# Map masked display names back to the real filename for row lookup
+_options_map = dict(zip(options, filtered[file_col].tolist()))
 if options:
     selected_file = st.selectbox("Select a report", options=options)
-    row = filtered[filtered[file_col] == selected_file].iloc[0]
-
+    real_file = _options_map.get(selected_file, selected_file)
+    row = filtered[filtered[file_col] == real_file].iloc[0]
     tab1, tab2, tab3, tab4 = st.tabs([
         "📋 General", "🛠️ Drilling", "💧 Mud & Hydraulics", "⚠️ Anomalies"
     ])

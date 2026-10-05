@@ -31,7 +31,7 @@ wells:
 # Branding — controlled at deploy level only
 # ============================================================
 branding:
-  show_logo: true
+  show_logo: false
   show_well_name: true
   show_client_name: false                 # ← NEW: hide "PETRONAS CARIGALI"
   anonymize_wells: true
