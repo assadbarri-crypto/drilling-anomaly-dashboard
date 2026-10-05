@@ -75,7 +75,10 @@ def render_trajectory(survey: pd.DataFrame | None) -> None:
                 margin=dict(l=0, r=0, t=40, b=10),
                 title="3D Well Path",
             )
-            st.plotly_chart(fig, use_container_width=True)
+            # Narrow + center the 3D plot
+            _left, _center, _right = st.columns([1, 2, 1])
+            with _center:
+                st.plotly_chart(fig, use_container_width=True)
 
     # ---------- Inclination + Azimuth ----------
     c1, c2 = st.columns(2)

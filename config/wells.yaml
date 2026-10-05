@@ -10,6 +10,7 @@ wells:
     country: "Sudan"
     data_path: "data/wells/TharJath5/drilling_reports.csv"
     survey_path: null
+    planned_curve_path: "data/wells/TharJath5/planned_curve.csv"      # ← NEW
 
   - id: TharJath8
     display_name: "Thar Jath-8"
@@ -18,14 +19,16 @@ wells:
     country: "Sudan"
     data_path: "data/wells/TharJath8/drilling_reports.csv"
     survey_path: "data/wells/TharJath8/survey.csv"
+    planned_curve_path: "data/wells/TharJath8/planned_curve.csv"      # ← NEW
 
   - id: TharJath11
     display_name: "Thar Jath-11"
-    type: deviated                                          # ← was vertical
+    type: deviated
     field: "Sudan Block 5A"
     country: "Sudan"
     data_path: "data/processed/all_reports.csv"
-    survey_path: "data/wells/TharJath11/survey.csv"         # ← new
+    survey_path: "data/wells/TharJath11/survey.csv"
+    planned_curve_path: "data/wells/TharJath11/planned_curve.csv"     # ← NEW
 
 # ============================================================
 # Branding — controlled at deploy level only
@@ -51,3 +54,4 @@ branding:
 
 ui:
   default_well_id: "TharJath5"
+

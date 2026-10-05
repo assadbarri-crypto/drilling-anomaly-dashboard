@@ -22,11 +22,12 @@ CONFIG_PATH = PROJECT_ROOT / "config" / "wells.yaml"
 class Well:
     id: str
     display_name: str
-    type: str                   # "vertical" | "deviated"
+    type: str
     field: str
     country: str
     data_path: Path
     survey_path: Optional[Path]
+    planned_curve_path: Optional[Path]
 
     @property
     def is_deviated(self) -> bool:
@@ -100,6 +101,7 @@ def load_config(config_path: Path = CONFIG_PATH) -> Config:
             country=w.get("country", ""),
             data_path=_resolve(w["data_path"]),
             survey_path=_resolve(w.get("survey_path")),
+            planned_curve_path=_resolve(w.get("planned_curve_path")),
         )
         for w in raw.get("wells", [])
     ]

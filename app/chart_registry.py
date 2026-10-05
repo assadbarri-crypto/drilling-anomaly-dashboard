@@ -53,25 +53,89 @@ def chart_anomaly_distribution(df: pd.DataFrame) -> None:
     fig = px.bar(d, x="Count", y="Anomaly", orientation="h",
                  color="Count", color_continuous_scale="Reds",
                  title="Anomaly Distribution")
-    fig.update_layout(height=380, showlegend=False,
+    fig.update_layout(height=500, showlegend=False,
                       coloraxis_showscale=False,
                       margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
 
 def chart_depth_vs_time(df: pd.DataFrame) -> None:
+    """Depth vs Time — actual depth line, with planned curve overlay."""
     if "date" not in df.columns or "depth_m" not in df.columns:
         st.info("Depth data not available.")
         return
-    d = df.dropna(subset=["date", "depth_m"])
+
+    d = df.dropna(subset=["date"]).sort_values("date").copy()
     if d.empty:
         st.info("No valid depth data.")
         return
-    fig = px.line(d, x="date", y="depth_m", markers=True,
-                  title="Depth vs Time",
-                  labels={"date": "Date", "depth_m": "Depth (m)"})
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=40, b=10))
+
+    # Forward-fill depth for early rig-move days (before first drilling)
+    # NaN → 0 only for leading NaNs; keep interior NaNs as-is (they're
+    # days with no depth recorded mid-drilling, rarer).
+    first_valid_idx = d["depth_m"].first_valid_index()
+    if first_valid_idx is not None:
+        # Rows before the first valid depth get 0
+        leading = d.index < first_valid_idx
+        d.loc[leading, "depth_m"] = 0.0
+
+    # Now drop any remaining NaN rows (mid-drilling gaps)
+    d = d.dropna(subset=["depth_m"]).reset_index(drop=True)
+
+    # ---- Actual depth line ----
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=d["date"], y=d["depth_m"],
+        mode="lines+markers",
+        name="Actual Depth",
+        line=dict(color="#1f77b4", width=2),
+        marker=dict(size=5),
+        hovertemplate="%{x|%Y-%m-%d}<br>Actual: %{y:,.0f} m<extra></extra>",
+    ))
+
+    # ---- Planned curve (if available) ----
+    planned = _get_planned_curve_for_current_well()
+    if planned is not None and not planned.empty:
+        # Anchor: plan Day 0 = first report date = start of rig move.
+        # Both curves share the same zero point.
+        start_date = d["date"].min()
+        planned_dates = start_date + pd.to_timedelta(
+            planned["day"], unit="D"
+        )
+        fig.add_trace(go.Scatter(
+            x=planned_dates, y=planned["planned_depth_m"],
+            mode="lines+markers",
+            name="Planned Depth",
+            line=dict(color="#d62728", width=2, dash="dash"),
+            marker=dict(size=6, symbol="diamond"),
+            hovertemplate=(
+                "Day %{customdata[0]:.1f}<br>"
+                "Planned: %{y:,.0f} m<extra></extra>"
+            ),
+            customdata=planned[["day"]].values,
+        ))
+
+    fig.update_layout(
+        title="Depth vs Time (Actual vs Planned)",
+        xaxis_title="Date",
+        yaxis_title="Depth (m)",
+        height=500,
+        margin=dict(l=10, r=10, t=40, b=10),
+        legend=dict(orientation="h", yanchor="bottom",
+                    y=1.02, xanchor="right", x=1),
+    )
     st.plotly_chart(fig, use_container_width=True)
+
+
+def _get_planned_curve_for_current_well():
+    """
+    Retrieve the planned curve for the currently-selected well.
+    Uses Streamlit session state, which the main app sets.
+    """
+    try:
+        return st.session_state.get("current_planned_curve")
+    except Exception:
+        return None
 
 
 def chart_rop_over_time(df: pd.DataFrame) -> None:
@@ -86,7 +150,7 @@ def chart_rop_over_time(df: pd.DataFrame) -> None:
     fig = px.line(d, x="date", y=col, markers=True,
                   title="ROP over Time",
                   labels={"date": "Date", col: "ROP (m/hr)"})
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -101,7 +165,7 @@ def chart_mud_weight(df: pd.DataFrame) -> None:
     fig = px.line(d, x="date", y="mud_weight_ppg", markers=True,
                   title="Mud Weight over Time (ppg)",
                   labels={"date": "Date", "mud_weight_ppg": "MW (ppg)"})
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -122,7 +186,7 @@ def chart_bit_weight(df: pd.DataFrame) -> None:
     fig = px.line(d, x="date", y="bit_weight_klbs", markers=True,
                   title="Bit Weight (WOB) over Time",
                   labels={"date": "Date", "bit_weight_klbs": "WOB (klbs)"})
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -137,7 +201,7 @@ def chart_bit_footage(df: pd.DataFrame) -> None:
     fig = px.line(d, x="date", y="bit_footage_m", markers=True,
                   title="Bit Footage over Time",
                   labels={"date": "Date", "bit_footage_m": "Footage (m)"})
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -162,7 +226,7 @@ def chart_pump_pressure(df: pd.DataFrame) -> None:
     fig.update_layout(title="Pump Pressure over Time",
                       xaxis_title="Date",
                       yaxis_title="Pressure (psi)",
-                      height=380,
+                      height=500,
                       margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -178,7 +242,7 @@ def chart_fuel_balance(df: pd.DataFrame) -> None:
     fig = px.line(d, x="date", y="fuel_balance_l", markers=True,
                   title="Fuel Balance over Time",
                   labels={"date": "Date", "fuel_balance_l": "Balance (L)"})
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -198,7 +262,7 @@ def chart_depth_progress(df: pd.DataFrame) -> None:
     fig = px.bar(d, x="date", y="progress_m",
                  title="Daily Depth Progress",
                  labels={"date": "Date", "progress_m": "Progress (m)"})
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -236,7 +300,7 @@ def chart_mw_in_out(df: pd.DataFrame) -> None:
     fig.update_layout(title="Mud Weight IN vs OUT (ppg)",
                       xaxis_title="Date",
                       yaxis_title="MW (ppg)",
-                      height=380,
+                      height=500,
                       margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -276,7 +340,7 @@ def chart_weight_up_down(df: pd.DataFrame) -> None:
     fig.update_layout(title="Weight Up vs Down (klbs)",
                       xaxis_title="Date",
                       yaxis_title="Weight (klbs)",
-                      height=380,
+                      height=500,
                       margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
 

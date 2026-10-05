@@ -204,8 +204,34 @@ def load_well_data(well_id: str) -> dict:
     if well.is_deviated and well.survey_path is not None:
         survey = _load_survey_csv(well.survey_path)
 
-    return {"well": well, "reports": reports, "survey": survey}
+    planned_curve = _load_planned_curve_csv(well.planned_curve_path)
 
+    return {
+        "well": well,
+        "reports": reports,
+        "survey": survey,
+        "planned_curve": planned_curve,
+    }
+
+
+def _load_planned_curve_csv(path: Optional[Path]) -> Optional[pd.DataFrame]:
+    """Load the planned depth-vs-day CSV for a well, if present."""
+    if path is None or not path.exists():
+        return None
+    try:
+        df = pd.read_csv(path)
+    except Exception:
+        return None
+    # Normalize column names
+    df.columns = [c.strip().lower() for c in df.columns]
+    # Expected: day, planned_depth_m
+    if "day" not in df.columns or "planned_depth_m" not in df.columns:
+        return None
+    df["day"] = pd.to_numeric(df["day"], errors="coerce")
+    df["planned_depth_m"] = pd.to_numeric(df["planned_depth_m"], errors="coerce")
+    df = df.dropna(subset=["day", "planned_depth_m"]).reset_index(drop=True)
+    df = df.sort_values("day").reset_index(drop=True)
+    return df
 
 def clear_cache():
     load_well_data.cache_clear()

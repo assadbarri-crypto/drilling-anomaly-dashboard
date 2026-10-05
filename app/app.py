@@ -58,6 +58,10 @@ bundle = load_well_data(selected_well_id)
 well = bundle["well"]
 df = bundle["reports"]
 survey = bundle["survey"]
+planned_curve = bundle.get("planned_curve")
+
+# Expose planned curve for the depth-vs-time chart
+st.session_state["current_planned_curve"] = planned_curve
 
 # ----------------------------------------------------------------
 # Sidebar — filters
@@ -241,7 +245,56 @@ if rop_col:
     rename_map[rop_col] = "ROP (m/hr)"
 
 display = display.rename(columns=rename_map)
-st.dataframe(display, use_container_width=True, hide_index=True)
+
+    # --- Format numeric columns ---
+    # Report # : integer, no decimals
+if "Report #" in display.columns:
+    display["Report #"] = display["Report #"].apply(
+        lambda x: f"{int(x)}" if pd.notna(x) else ""
+    )
+# Depth (m) : 0 decimals if integer, else 2
+if "Depth (m)" in display.columns:
+    display["Depth (m)"] = display["Depth (m)"].apply(
+        lambda x: f"{x:,.0f}" if pd.notna(x) else ""
+    )
+# ROP (m/hr) : 2 decimals
+if "ROP (m/hr)" in display.columns:
+    display["ROP (m/hr)"] = display["ROP (m/hr)"].apply(
+         lambda x: f"{x:.2f}" if pd.notna(x) else ""
+    )
+    # MW (ppg) : 2 decimals
+if "MW (ppg)" in display.columns:
+    display["MW (ppg)"] = display["MW (ppg)"].apply(
+        lambda x: f"{x:.2f}" if pd.notna(x) else ""
+    )
+
+    # --- Inject CSS to force center alignment (Streamlit overrides pandas) ---
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stDataFrame"] td,
+        div[data-testid="stDataFrame"] th {
+            text-align: center !important;
+        }
+        div[data-testid="stDataFrame"] td div,
+        div[data-testid="stDataFrame"] th div {
+            justify-content: center !important;
+            text-align: center !important;
+            display: flex !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # --- Render centered on the page ---
+    _left, _center, _right = st.columns([1, 20, 1])
+    with _center:
+        st.dataframe(
+            display,
+            use_container_width=True,
+            hide_index=True,
+        )
 
 st.divider()
 
