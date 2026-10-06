@@ -36,7 +36,7 @@ wells:
 branding:
   show_logo: false
   show_well_name: true
-  show_report_anomalies: false       # ← NEW: hide per-report narrative tex
+  show_report_anomalies: true       # ← NEW: hide per-report narrative tex
   show_client_name: false                 # ← NEW: hide "PETRONAS CARIGALI"
   anonymize_wells: true
   anonymized_names:

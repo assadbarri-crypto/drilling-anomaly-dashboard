@@ -361,6 +361,18 @@ if options:
         ])
         tab4 = None
 
+    # ----------------------------------------------------------------
+    # FALLBACK — Full tab hiding (kept for reference, disabled)
+    # ----------------------------------------------------------------
+    # If you want to hide the entire Anomalies tab in the future
+    # (instead of masking its text), uncomment the block below and
+    # comment out the block above:
+    #
+    # tab1, tab2, tab3 = st.tabs([
+    #     "📋 General", "🛠️ Drilling", "💧 Mud & Hydraulics"
+    # ])
+    # tab4 = None
+
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -457,11 +469,51 @@ if options:
             else:
                 st.success("✅ No anomalies detected")
 
+            # ---- Mask confidential terms in narrative text ----
+            evidence_raw = row.get("anomaly_evidence", "—")
+            summary_raw  = row.get("summary", "—")
+
+            evidence_masked = CONFIG.branding.mask_text(
+                str(evidence_raw) if pd.notna(evidence_raw) else "—",
+                well_id=well.id,
+                real_well_name=row.get("well_name", ""),
+            )
+            summary_masked = CONFIG.branding.mask_text(
+                str(summary_raw) if pd.notna(summary_raw) else "—",
+                well_id=well.id,
+                real_well_name=row.get("well_name", ""),
+            )
+
             st.markdown("### Evidence")
-            st.info(row.get("anomaly_evidence", "—"))
+            st.info(evidence_masked)
 
             st.markdown("### Summary of Operations")
-            st.write(row.get("summary", "—"))
+            st.write(summary_masked)
+
+    # ----------------------------------------------------------------
+    # FALLBACK — Unmasked version (kept for reference, disabled)
+    # ----------------------------------------------------------------
+    # If you ever need to show raw text (e.g., internal testing),
+    # uncomment the block below and comment out the masked block above:
+    #
+    # if tab4 is not None:
+    #     with tab4:
+    #         st.markdown("### Anomaly labels")
+    #         try:
+    #             labels = eval(row["anomalies"]) if isinstance(row["anomalies"], str) else row["anomalies"]
+    #         except Exception:
+    #             labels = []
+    #         if labels and labels != ["no_anomaly"]:
+    #             for lbl in labels:
+    #                 st.error(f"⚠️ {lbl}")
+    #         else:
+    #             st.success("✅ No anomalies detected")
+    #
+    #         st.markdown("### Evidence")
+    #         st.info(row.get("anomaly_evidence", "—"))
+    #
+    #         st.markdown("### Summary of Operations")
+    #         st.write(row.get("summary", "—"))
 
 # ----------------------------------------------------------------
 # Footer

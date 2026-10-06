@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Optional
 
 import yaml
@@ -62,6 +63,70 @@ class Branding:
             return real_rig_name or self.rig_name_masked
         return self.rig_name_masked
 
+    def mask_text(self, text: str, well_id: str = "",
+                  real_well_name: str = "") -> str:
+        """
+        Mask confidential terms in free-form text (narratives, evidence).
+        Replaces well name variants and rig name patterns with anonymized values.
+        Typo-tolerant and zero-pad-tolerant.
+        """
+        if not text or not isinstance(text, str):
+            return text
+
+        out = text
+
+        # --- Mask well name variants ---
+        if self.anonymize_wells and well_id:
+            masked_well = self.display_name_for(well_id, real_well_name)
+
+            # Extract the well number (e.g. "5" from "TharJath5")
+            m = re.search(r"(\d+)$", well_id)
+            well_num = m.group(1) if m else ""
+
+            # --- Pattern 1: "Thar ... Jath [zeros] <num>" (well's own number) ---
+            # This catches "Thar Jath 8" first, so we don't double-replace later
+            if well_num:
+                thar_jath_numbered_re = re.compile(
+                    r"Thar[\s\.\-_#]*Jath[\s\.\-_#]*0*"
+                    + re.escape(well_num) + r"\b",
+                    re.IGNORECASE,
+                )
+                out = thar_jath_numbered_re.sub(masked_well, out)
+
+            # --- Pattern 2: ANY remaining "Thar ... Jath" (typo-tolerant) ---
+            # Matches: Thar Jath, TharJath, Thar-Jath, Thar.Jath, "Thar Jath #"
+            # and anything that follows (numbers, codes, punctuation)
+            thar_jath_re = re.compile(
+                r"Thar[\s\.\-_#]*Jath",
+                re.IGNORECASE,
+            )
+            out = thar_jath_re.sub(masked_well, out)
+
+            # --- Pattern 3: "TJ [zeros] <num>" ---
+            # Matches: TJ-5, TJ 5, TJ5, TJ-05, TJ05, TJ_005, etc.
+            if well_num:
+                tj_re = re.compile(
+                    r"\bTJ[\s\.\-_#]*0*" + re.escape(well_num) + r"\b",
+                    re.IGNORECASE,
+                )
+                out = tj_re.sub(masked_well, out)
+
+        # --- Mask rig name patterns ---
+        if not self.show_rig_name:
+            out = re.sub(
+                r"(?i)\bZPEB[\s\.\-_]*Rig[\s\.\-_]*\d+\b",
+                self.rig_name_masked, out,
+            )
+            out = re.sub(
+                r"(?i)\bZPEB[\s\.\-_]*\d+\b",
+                self.rig_name_masked, out,
+            )
+            out = re.sub(
+                r"(?i)\bRig[\s\.\-_]*\d{2,}\b",
+                self.rig_name_masked, out,
+            )
+
+        return out
 
 @dataclass(frozen=True)
 class Config:
