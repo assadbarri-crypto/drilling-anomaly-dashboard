@@ -43,6 +43,7 @@ class Branding:
     anonymized_names: dict
     show_rig_name: bool
     rig_name_masked: str
+    show_report_anomalies: bool        # ← NEW
     show_background: bool
     background_path: Path
     background_opacity: float
@@ -115,6 +116,7 @@ def load_config(config_path: Path = CONFIG_PATH) -> Config:
         anonymized_names=dict(b.get("anonymized_names", {}) or {}),
         show_rig_name=bool(b.get("show_rig_name", True)),
         rig_name_masked=b.get("rig_name_masked", "XXXX"),
+        show_report_anomalies=bool(b.get("show_report_anomalies", True)),
         show_background=bool(b.get("show_background", False)),
         background_path=_resolve(b.get("background_path",
                                        "assets/rig_background.jpg")),

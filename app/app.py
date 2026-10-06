@@ -342,13 +342,24 @@ options = [
 
 # Map masked display names back to the real filename for row lookup
 _options_map = dict(zip(options, filtered[file_col].tolist()))
+
 if options:
     selected_file = st.selectbox("Select a report", options=options)
     real_file = _options_map.get(selected_file, selected_file)
     row = filtered[filtered[file_col] == real_file].iloc[0]
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📋 General", "🛠️ Drilling", "💧 Mud & Hydraulics", "⚠️ Anomalies"
-    ])
+
+    # Build tab list dynamically based on config
+    show_anomalies = CONFIG.branding.show_report_anomalies
+
+    if show_anomalies:
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "📋 General", "🛠️ Drilling", "💧 Mud & Hydraulics", "⚠️ Anomalies"
+        ])
+    else:
+        tab1, tab2, tab3 = st.tabs([
+            "📋 General", "🛠️ Drilling", "💧 Mud & Hydraulics"
+        ])
+        tab4 = None
 
     with tab1:
         col1, col2 = st.columns(2)
@@ -433,23 +444,24 @@ if options:
             field_row("Bit Pressure Drop (psi)", row.get("bit_pressure_drop_psi"))
             field_row("Hydraulic HP", row.get("hydraulic_hp"))
 
-    with tab4:
-        st.markdown("### Anomaly labels")
-        try:
-            labels = eval(row["anomalies"]) if isinstance(row["anomalies"], str) else row["anomalies"]
-        except Exception:
-            labels = []
-        if labels and labels != ["no_anomaly"]:
-            for lbl in labels:
-                st.error(f"⚠️ {lbl}")
-        else:
-            st.success("✅ No anomalies detected")
+    if tab4 is not None:
+        with tab4:
+            st.markdown("### Anomaly labels")
+            try:
+                labels = eval(row["anomalies"]) if isinstance(row["anomalies"], str) else row["anomalies"]
+            except Exception:
+                labels = []
+            if labels and labels != ["no_anomaly"]:
+                for lbl in labels:
+                    st.error(f"⚠️ {lbl}")
+            else:
+                st.success("✅ No anomalies detected")
 
-        st.markdown("### Evidence")
-        st.info(row.get("anomaly_evidence", "—"))
+            st.markdown("### Evidence")
+            st.info(row.get("anomaly_evidence", "—"))
 
-        st.markdown("### Summary of Operations")
-        st.write(row.get("summary", "—"))
+            st.markdown("### Summary of Operations")
+            st.write(row.get("summary", "—"))
 
 # ----------------------------------------------------------------
 # Footer
