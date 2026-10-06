@@ -777,14 +777,42 @@ def extract_time_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
 # SUMMARY
 # ======================================================================
 def extract_summary(text: str) -> str:
+    """
+    Extract the SUMMARY OF OPERATIONS narrative.
+    Strips trailing AFE numbers and meta-fields that get concatenated
+    by pdfplumber's reading order.
+    Handles both compact codes ('040406') and spaced codes ('04 03 02').
+    """
     m = re.search(
         r"SUMMARY OF OPERATIONS.*?\n(.+?)(?=AFE COST|DRY HOLE|ESTIMATED COST)",
         text, re.S | re.I,
     )
-    if m:
-        s = re.sub(r"\s+", " ", m.group(1)).strip()
-        return s[:500]
-    return ""
+    if not m:
+        return ""
+
+    s = re.sub(r"\s+", " ", m.group(1)).strip()
+
+    # --- Strip AFE codes in various formats ---
+
+    # 1. AFE label + code
+    s = re.sub(r"\bAFE\s*No\.?\s*:?\s*\d{4,8}\b", "", s, flags=re.IGNORECASE)
+
+    # 2. Compact code at end: "040406"
+    s = re.sub(r"\s+\d{4,8}\s*$", "", s)
+
+    # 3. Spaced 3-group code at end: "04 03 02"
+    s = re.sub(r"\s+\d{2}\s+\d{2}\s+\d{2}\s*$", "", s)
+
+    # 4. Spaced 2-group code at end: "04 03"
+    s = re.sub(r"\s+\d{2}\s+\d{2}\s*$", "", s)
+
+    # 5. Any trailing numeric token(s) after a comma or period
+    s = re.sub(r"[,\.]\s*\d[\d\s]{2,}$", "", s)
+
+    # Cleanup: remove double spaces
+    s = re.sub(r"\s{2,}", " ", s).strip()
+
+    return s[:500]
 
 
 # ======================================================================
