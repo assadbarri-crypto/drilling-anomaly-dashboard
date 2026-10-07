@@ -28,6 +28,92 @@ st.set_page_config(
     layout="wide",
 )
 
+# ---- Global style overrides ----
+st.markdown(
+    """
+    <style>
+    /* ============ HEADER TITLE ============ */
+    h1 {
+        color: #1a4d8f !important;
+        font-weight: 700 !important;
+    }
+    [data-testid="stCaptionContainer"] {
+        color: #4a7eb8 !important;
+        font-size: 1.05rem !important;
+    }
+
+    /* ============ SECTION HEADERS ============ */
+    h2, h3 {
+        color: #1a4d8f !important;
+    }
+
+    /* ============ GLOBAL OVERVIEW KPIs (RED) ============ */
+    [data-testid="stMetricLabel"] {
+        color: #c0392b !important;
+        font-weight: 600 !important;
+        font-size: 1.05rem !important;
+    }
+    [data-testid="stMetricValue"] {
+        color: #c0392b !important;
+        font-weight: 700 !important;
+        font-size: 2rem !important;
+    }
+
+    /* ============ REPORTS TABLE (BLUE) ============ */
+    div[data-testid="stDataFrame"] th,
+    div[data-testid="stDataFrame"] th div,
+    div[data-testid="stDataFrame"] thead tr th {
+        color: #1a4d8f !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+        text-align: center !important;
+    }
+    div[data-testid="stDataFrame"] td,
+    div[data-testid="stDataFrame"] td div {
+        color: #1a4d8f !important;
+        font-size: 1rem !important;
+        text-align: center !important;
+        justify-content: center !important;
+    }
+    div[data-testid="stDataFrame"] td div,
+    div[data-testid="stDataFrame"] th div {
+        display: flex !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+
+    /* ============ REPORT DETAIL — LABELS (BLUE) ============ */
+    [data-testid="stMarkdownContainer"] p strong {
+        color: #1a4d8f !important;
+        font-size: 1.15rem !important;
+        font-weight: 700 !important;
+    }
+    /* ============ REPORT DETAIL — VALUES (RED) ============ */
+    [data-testid="stMarkdownContainer"] p {
+        color: #c0392b !important;
+        font-size: 1.15rem !important;
+    }
+
+    /* ============ TAB LABELS ============ */
+    button[data-baseweb="tab"] {
+        color: #1a4d8f !important;
+        font-weight: 600 !important;
+        font-size: 1.05rem !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #c0392b !important;
+    }
+
+    /* ============ ANOMALIES/SUMMARY SUBHEADERS (RED) ============ */
+    [data-testid="stMarkdownContainer"] h3 {
+        color: #c0392b !important;
+        font-size: 1.3rem !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ----------------------------------------------------------------
 # Config + well selector
 # ----------------------------------------------------------------
