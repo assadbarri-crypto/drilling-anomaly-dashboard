@@ -31,7 +31,12 @@ def _get_ocr():
     global _OCR
     if _OCR is None:
         # use_angle_cls=True handles slightly rotated scans (common in old PDFs)
-        _OCR = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+        # Note: `show_log` was removed in newer PaddleOCR versions.
+        # We try with it first (older versions), then fall back without.
+        try:
+            _OCR = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+        except (TypeError, ValueError):
+            _OCR = PaddleOCR(use_angle_cls=True, lang="en")
     return _OCR
 
 

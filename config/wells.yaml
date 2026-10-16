@@ -10,7 +10,7 @@ wells:
     country: "Sudan"
     data_path: "data/wells/TharJath5/drilling_reports.csv"
     survey_path: null
-    planned_curve_path: "data/wells/TharJath5/planned_curve.csv"      # ← NEW
+    planned_curve_path: "data/wells/TharJath5/planned_curve.csv"
 
   - id: TharJath8
     display_name: "Thar Jath-8"
@@ -19,7 +19,7 @@ wells:
     country: "Sudan"
     data_path: "data/wells/TharJath8/drilling_reports.csv"
     survey_path: "data/wells/TharJath8/survey.csv"
-    planned_curve_path: "data/wells/TharJath8/planned_curve.csv"      # ← NEW
+    planned_curve_path: "data/wells/TharJath8/planned_curve.csv"
 
   - id: TharJath11
     display_name: "Thar Jath-11"
@@ -28,7 +28,61 @@ wells:
     country: "Sudan"
     data_path: "data/processed/all_reports.csv"
     survey_path: "data/wells/TharJath11/survey.csv"
-    planned_curve_path: "data/wells/TharJath11/planned_curve.csv"     # ← NEW
+    planned_curve_path: "data/wells/TharJath11/planned_curve.csv"
+
+  - id: TharJath03
+    display_name: "Thar Jath-03"
+    type: vertical
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath03/drilling_reports.csv"
+    survey_path: null
+    planned_curve_path: null
+
+  - id: TharJath03A
+    display_name: "Thar Jath-03A"
+    type: vertical
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath03A/drilling_reports.csv"
+    survey_path: null
+    planned_curve_path: null
+
+  - id: TharJath04
+    display_name: "Thar Jath-04"
+    type: vertical
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath04/drilling_reports.csv"
+    survey_path: null
+    planned_curve_path: null
+
+  - id: TharJath06
+    display_name: "Thar Jath-06"
+    type: vertical
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath06/drilling_reports.csv"
+    survey_path: null
+    planned_curve_path: null
+
+  - id: TharJath07
+    display_name: "Thar Jath-07"
+    type: vertical
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath07/drilling_reports.csv"
+    survey_path: null
+    planned_curve_path: null
+
+  - id: TharJath15
+    display_name: "Thar Jath-15"
+    type: vertical
+    field: "Sudan Block 5A"
+    country: "Sudan"
+    data_path: "data/wells/TharJath15/drilling_reports.csv"
+    survey_path: null
+    planned_curve_path: null
 
 # ============================================================
 # Branding — controlled at deploy level only
@@ -36,17 +90,21 @@ wells:
 branding:
   show_logo: false
   show_well_name: true
-  show_report_anomalies: true       # ← NEW: hide per-report narrative tex
-  show_client_name: false                 # ← NEW: hide "PETRONAS CARIGALI"
+  show_report_anomalies: true
+  show_client_name: false
   anonymize_wells: true
   anonymized_names:
-    TharJath5:  "Well A"
-    TharJath8:  "Well B"
-    TharJath11: "Well C"
-
-  show_rig_name: false                    # ← NEW: mask rig name
-  rig_name_masked: "XXXX"                 # ← NEW: what to show instead
-
+    TharJath5:   "Well A"
+    TharJath8:   "Well B"
+    TharJath11:  "Well C"
+    TharJath03:  "Well D"
+    TharJath03A: "Well E"
+    TharJath04:  "Well F"
+    TharJath06:  "Well G"
+    TharJath07:  "Well H"
+    TharJath15:  "Well I"
+  show_rig_name: false
+  rig_name_masked: "XXXX"
   show_background: true
   background_path: "assets/rig_background.jpg"
   background_opacity: 0.40
@@ -55,4 +113,3 @@ branding:
 
 ui:
   default_well_id: "TharJath5"
-

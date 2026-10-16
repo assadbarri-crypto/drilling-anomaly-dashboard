@@ -75,6 +75,7 @@ def _find_row(rows: List[List[Dict]], *keywords: str) -> Optional[List[Dict]]:
 def extract_header_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
 
+    # ---------- Well name ----------
     well_row = _find_row(rows, "Thar", "Jath")
     if well_row:
         # Well name words all sit left of x=150 (Sudan starts around 196+)
@@ -89,20 +90,101 @@ def extract_header_from_rows(rows: List[List[Dict]]) -> Dict[str, Any]:
         if foot_words:
             out["footage_m"] = _num(foot_words[0]["text"])
 
+    # ---------- Rig name ----------
     rig_row = _find_row(rows, "ZPEB")
     if rig_row:
         out["rig_name"] = " ".join(w["text"] for w in rig_row)
 
+    # ---------- Date & Report No ----------
+    # Multi-layout date extraction.
+    # Layout A (TJ-5, TJ-8): date on "US OILFIELD UNITS" row, middle column.
+    # Layout B (TJ-3, TJ-4, TJ-6, TJ-7, TJ-15): same row, slightly further right.
     date_row = _find_row(rows, "OILFIELD", "UNITS")
-    if date_row:
-        date_words = [w["text"] for w in date_row if 420 <= w["x0"] <= 540]
-        date_text = " ".join(date_words)
-        date_text = re.sub(r"\s+\d+\s*$", "", date_text).strip()
-        out["date_raw"] = date_text
 
-        nums = [w["text"] for w in date_row if w["text"].isdigit() and w["x0"] > 530]
+    if date_row:
+        # Widen the window to catch both layouts
+        date_words = [w["text"] for w in date_row
+                      if 400 <= w["x0"] <= 560]
+        date_text = " ".join(date_words).strip()
+
+        # Strip trailing report number
+        date_text = re.sub(r"\s+\d+\s*$", "", date_text).strip()
+        # Strip label remnants
+        date_text = re.sub(r"\b(REPORT|No\.?|Drilling)\b.*$", "",
+                           date_text, flags=re.IGNORECASE).strip()
+
+        if date_text:
+            out["date_raw"] = date_text
+
+        # Report no: last digit-word to the right of x=520
+        nums = [w["text"] for w in date_row
+                if w["text"].isdigit() and w["x0"] > 520]
         if nums:
             out["report_no"] = _num(nums[-1])
+
+    # ---------- Fallback: look for DATE label anywhere in top rows ----------
+    if "date_raw" not in out or not out.get("date_raw"):
+        for row in rows[:15]:
+            if not row:
+                continue
+            row_text = " ".join(w["text"] for w in row).upper()
+            if "DATE" not in row_text:
+                continue
+            if "UPDATE" in row_text or "BOP" in row_text or "H2S" in row_text:
+                continue
+
+            # Find the DATE label
+            date_idx = None
+            for i, w in enumerate(row):
+                if w["text"].upper() in ("DATE", "DATE:"):
+                    date_idx = i
+                    break
+            if date_idx is None:
+                continue
+
+            # Collect words after DATE, stopping at field labels
+            parts = []
+            for w in row[date_idx + 1:]:
+                t = w["text"].strip()
+                t_u = t.upper()
+                if t_u in ("REPORT", "NO:", "NO", "#") or "REPORT" in t_u:
+                    break
+                if "DRILLING" in t_u:
+                    break
+                parts.append(t)
+                if len(parts) >= 4:
+                    break
+
+            if parts:
+                candidate = " ".join(parts).strip()
+                # Keep only if it looks like a real date
+                if re.search(
+                    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|"
+                    r"January|February|March|April|June|July|August|September|"
+                    r"October|November|December|\d{4})",
+                    candidate, re.IGNORECASE
+                ):
+                    out["date_raw"] = candidate
+                    break
+
+    # ---------- Fallback for report_no ----------
+    if "report_no" not in out:
+        for row in rows[:15]:
+            if not row:
+                continue
+            row_text = " ".join(w["text"] for w in row).upper()
+            if "REPORT" not in row_text or "NO" not in row_text:
+                continue
+            for i, w in enumerate(row):
+                if "NO" in w["text"].upper():
+                    for w2 in row[i + 1:]:
+                        n = _num(w2["text"])
+                        if n is not None and 0 < n < 500:
+                            out["report_no"] = n
+                            break
+                    break
+            if "report_no" in out:
+                break
 
     return out
 
